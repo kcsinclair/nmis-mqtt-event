@@ -1,0 +1,9 @@
+%hash = (
+  'mqtt' => {
+    'topic'         => 'nmis/event', # or whatever you like e.g. your/mqtt/topic
+    'server'        => 'your.mqtt.server:1883',
+    'username'      => 'your_mqtt_username',
+    'password'      => 'your_mqtt_password',
+    'extra_logging' => 0,
+  }
+);
