@@ -72,6 +72,33 @@ The install script will:
 
 3. Configure NMIS to use `Notify::mqttevent` as a notification method for the desired events.
 
+You will need to use the NMIS Escalation system to tell NMIS when to send events to MQTT, for details refer to [Custom Notification Methods for NMIS Events](https://docs.community.firstwave.com/wiki/spaces/NMIS/pages/3165685741/Custom+Notification+Methods+for+NMIS+Events) and [NMIS8 Escalations](https://docs.community.firstwave.com/wiki/spaces/NMIS/pages/3165685353/NMIS8+Escalations) these work the same way in NMIS9.
+
+Generally speaking adding the MQTT method to default escalation at level0 would likely be what you would need, this will send every event to MQTT.  If you preferred a little dampening, add it to level1 or level2, this would remove the transient flapping events from going to MQTT.
+
+```
+ 'default_default_default_default__' => {
+   'Event' => 'default',
+   'Event_Element' => '',
+   'Event_Node' => '',
+   'Group' => 'default',
+   'Level0' => 'syslog:localhost,json:localhost,mqttevent:Contact1',
+   'Level1' => '',
+   'Level2' => '',
+   'Level3' => '',
+   'Level4' => '',
+   'Level5' => '',
+   'Level6' => '',
+   'Level7' => '',
+   'Level8' => '',
+   'Level9' => '',
+   'Level10' => '',
+   'Role' => 'default',
+   'Type' => 'default',
+   'UpNotify' => 'true'
+ },
+ ```
+
 ## How It Works
 
 When NMIS triggers a notification, this plugin:
