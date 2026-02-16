@@ -26,17 +26,7 @@
 # message is sent as a JSON object containing the event details.
 
 # INSTALLATION:
-# 1. Install the Net::MQTT::Simple Perl modules if not already installed.
-# 1. Copy this file to lib/Notify/mqttevent.pm in your NMIS installation.
-# 2. Create a configuration file conf/mqttevent.conf with the following content:
-#    [mqtt]
-#    topic = your/mqtt/topic
-#    server = your.mqtt.server:1883
-#    username = your_mqtt_username
-#    password = your_mqtt_password
-#    extra_logging = 0
-# 3. (Optional) Create an ignore list file conf/mqttIgnoreList.txt with regexes # of events to ignore, one per line.
-# 4. Configure NMIS to use this module as a notification plugin for the desired # events.
+# Check README.md for latest instructions, or https://github.com/kcsinclair/nmis-mqtt-event/blob/main/README.md
 
 # optional extra logging for debugging, set to 1 to enable, 0 to disable.
 my $extraLogging = 0;
@@ -169,10 +159,31 @@ sub sendNotification
 				$nmisng->log->info("mqtt sent to $server: $event->{node_name} $event->{event} $event->{element} $details");
 			}
 
+			# is there a secondary MQTT server configured to send to? if so, send to that as well.
+			if ( defined $C->{mqtt_secondary} and defined $C->{mqtt_secondary}{server} and $C->{mqtt_secondary}{server} )
+			{
+				my $error = publishMqtt(
+							topic => "$C->{mqtt_secondary}{topic}/$node_name", 
+							message => $message, 
+							retain => 0,
+							server => $C->{mqtt_secondary}{server},
+							username => $C->{mqtt_secondary}{username},
+							password => $C->{mqtt_secondary}{password}
+						);
+				
+				if ($error)
+				{
+					$nmisng->log->error("ERROR: failed to publishMqtt to $C->{mqtt_secondary}{server}: $error");
+				}
+				else
+				{
+					$nmisng->log->info("mqtt sent to $C->{mqtt_secondary}{server}: $event->{node_name} $event->{event} $event->{element} $details");
+				}
+			}
 		}
 		else
 		{
-			$nmisng->log->debug2("event not sent as event in blacklist $event->{node_name} $event->{event} $event->{element}.");
+			$nmisng->log->debug2("event not sent as event in ignore list $event->{node_name} $event->{event} $event->{element}.");
 		}
 	}
 	else
