@@ -55,6 +55,8 @@ sub sendNotification
 	my $server;
 	my $username;
 	my $password;
+	my $retain = 0;
+	my $retries = 1;
 
 	confess("NMISNG argument required!") if (ref($nmisng) ne "NMISNG");
 	my $C = $nmisng->config;
@@ -68,6 +70,8 @@ sub sendNotification
 		$username = $mqttConfig->{mqtt}{username};
 		$password = $mqttConfig->{mqtt}{password};
 		$extraLogging = NMISNG::Util::getbool($mqttConfig->{mqtt}{extra_logging});
+		$retain = NMISNG::Util::getbool($mqttConfig->{mqtt}{retain});
+		$retries = int($mqttConfig->{mqtt}{retries} // 1);
 	}
 
 	# get the ignorelist from conf/ or conf-default/
@@ -142,9 +146,10 @@ sub sendNotification
 			# the node name appended, but this could be modified to use any 
 			# topic structure you want.
 			my $error = publishMqtt(
-						topic => "$topic/$node_name", 
-						message => $message, 
-						retain => 0,
+						topic => "$topic/$node_name",
+						message => $message,
+						retain => $retain,
+						retries => $retries,
 						server => $server,
 						username => $username,
 						password => $password
@@ -163,9 +168,10 @@ sub sendNotification
 			if ( defined $C->{mqtt_secondary} and defined $C->{mqtt_secondary}{server} and $C->{mqtt_secondary}{server} )
 			{
 				my $error = publishMqtt(
-							topic => "$C->{mqtt_secondary}{topic}/$node_name", 
-							message => $message, 
-							retain => 0,
+							topic => "$C->{mqtt_secondary}{topic}/$node_name",
+							message => $message,
+							retain => $retain,
+							retries => $retries,
 							server => $C->{mqtt_secondary}{server},
 							username => $C->{mqtt_secondary}{username},
 							password => $C->{mqtt_secondary}{password}
@@ -208,27 +214,39 @@ sub loadIgnoreList
 	return (undef,@lines);
 }
 
-# Object oriented (supports subscribing to topics)
 sub publishMqtt {
 	my %arg = @_;
 	my $topic = $arg{topic};
 	my $message = $arg{message};
 	my $retain = $arg{retain};
+	my $retries = int($arg{retries} // 1);
 	my $server = $arg{server};
 	my $username = $arg{username};
 	my $password = $arg{password};
 
 	$ENV{MQTT_SIMPLE_ALLOW_INSECURE_LOGIN} = 1;
- 
-	my $mqtt = Net::MQTT::Simple->new($server);
-	$mqtt->login($username,$password);
 
-	if ( $retain ) {
-		$mqtt->retain($topic => $message);	
+	my $last_error;
+	for my $attempt (0 .. $retries)
+	{
+		eval {
+			my $mqtt = Net::MQTT::Simple->new($server);
+			$mqtt->login($username,$password);
+
+			if ( $retain ) {
+				$mqtt->retain($topic => $message);
+			}
+			else {
+				$mqtt->publish($topic => $message);
+			}
+		};
+		if ($@) {
+			$last_error = $@;
+			next;
+		}
+		return undef;    # success
 	}
-	else {
-		$mqtt->publish($topic => $message);
-	}
+	return $last_error;
 }
 
 1;
